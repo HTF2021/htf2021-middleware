@@ -25,6 +25,8 @@ app.get('/data', function (req, res) {
 });
 
 app.get('/new_solution', function (req, res) {
+    var guesses = {"guesses": []}
+    fs.writeFileSync('guesses.json', JSON.stringify(guesses));
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
         var oData = response.data;
         let solution = {
@@ -91,7 +93,15 @@ app.post('/check_answer', jsonParser, (req, res) => {
         kamer: _checkKamer(currentAnswer.kamer, solution.kamer)
     };
     res.send(response);
+    _writeGuess(currentAnswer);
 });
+
+function _writeGuess(currentAnswer){
+    let rawdata = fs.readFileSync('guesses.json').toString();
+    var guesses = JSON.parse(rawdata);
+    guesses.guesses.push(currentAnswer);
+    fs.writeFileSync('guesses.json', JSON.stringify(guesses));
+}
 
 function _checkWapen(caWapen, soWapen){
     if(caWapen.id === soWapen.id){
