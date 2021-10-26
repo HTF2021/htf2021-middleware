@@ -1,0 +1,20 @@
+{
+  "name": "htf2021_cluedo",
+  "version": "1.0.0",
+  "description": "Cluedo game for Hack The Future 2021",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cluedo",
+    "server",
+    "express"
+  ],
+  "author": "Flexso",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.22.0",
+    "express": "^4.17.1"
+  }
+}
