@@ -3,9 +3,12 @@ var bodyParser = require('body-parser');
 const app = express(), port = process.env.PORT || 3000 ;
 var jsonParser = bodyParser.json();
 const { default: axios } = require('axios');
-const AMOUNT_OF_KAMERS = 9;
+const fs = require('fs');
 
 app.use(express.static('public'));
+
+app.use(bodyParser.urlencoded());
+app.use(bodyParser.json());
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -14,7 +17,6 @@ app.use((req, res, next) => {
 
 app.get('/data', function (req, res) {
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
-    //axios.get("http://localhost:3001/testdata.json").then((response)=>{
         var oData = response.data;
         res.send(oData);
     }).catch((e)=>{
@@ -23,9 +25,7 @@ app.get('/data', function (req, res) {
 });
 
 app.get('/new_solution', function (req, res) {
-    console.log("hallo");
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
-    //axios.get("http://localhost:3001/testdata.json").then((response)=>{
         var oData = response.data;
         let solution = {
             "wapen": oData.wapens[_getRandomInt(oData.wapens.length)],
@@ -33,14 +33,13 @@ app.get('/new_solution', function (req, res) {
             "kamer": oData.kamers[_getRandomInt(oData.kamers.length)]
         }
         if(solution != null && solution != undefined){
-            res.send(solution); // Save solution in db
+            fs.writeFileSync('solution.json', JSON.stringify(solution));
             console.log("Solution created");
-            //console.log(solution);
         } else {
-            console.log("Could not create solution");
+            console.error("Could not create solution");
         }
     }).catch((e)=>{
-        console.log(`Error: ${e}`);
+        console.error(`Error: ${e}`);
     });
 });
 
@@ -84,22 +83,8 @@ app.post('/move_player', jsonParser, (req, res) => {
 
 app.post('/check_answer', jsonParser, (req, res) => {
     var currentAnswer = req.body;
-    // Get solution from database
-
-    let rawdata = fs.readFileSync('resources\solution.json').toString();
+    let rawdata = fs.readFileSync('solution.json').toString();
     var solution = JSON.parse(rawdata);
-
-    /*var solution = { // Temporary solution
-        "wapen": {
-            "id": 1
-        },
-        "dader": {
-            "id": 2
-        },
-        "kamer": {
-            "id": 3
-        }
-    };*/
     var response = {
         wapen: _checkWapen(currentAnswer.wapen, solution.wapen),
         dader: _checkDader(currentAnswer.dader, solution.dader),
