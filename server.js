@@ -25,8 +25,10 @@ app.get('/data', function (req, res) {
 });
 
 app.get('/new_solution', function (req, res) {
-    var guesses = {"guesses": []}
+    // reset game
+    var guesses = {"guesses": []};
     fs.writeFileSync('guesses.json', JSON.stringify(guesses));
+    // generate new solution
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
         var oData = response.data;
         let solution = {
@@ -87,13 +89,57 @@ app.post('/check_answer', jsonParser, (req, res) => {
     var currentAnswer = req.body;
     let rawdata = fs.readFileSync('solution.json').toString();
     var solution = JSON.parse(rawdata);
-    var response = {
+    var checks = {
         wapen: _checkWapen(currentAnswer.wapen, solution.wapen),
         dader: _checkDader(currentAnswer.dader, solution.dader),
         kamer: _checkKamer(currentAnswer.kamer, solution.kamer)
     };
-    res.send(response);
-    _writeGuess(currentAnswer);
+    axios.get("https://htf-2021.herokuapp.com/testdata.json").then((resp)=>{
+        var oData = resp.data;
+        var remainingWapens;
+        if(!checks.wapen){
+            remainingWapens = oData.wapens.filter(function(i, n){
+                return i.id !== parseInt(currentAnswer.wapen.id);
+            });
+        } else {
+            remainingWapens = oData.wapens.filter(function(i, n){
+                n.id === currentAnswer.wapen.id
+            });
+        }
+        var remainingDaders;
+        if(!checks.dader){
+            remainingDaders = oData.daders.filter(function(i, n){
+                return i.id !== parseInt(currentAnswer.dader.id);
+            });
+        } else {
+            remainingDaders = oData.daders.filter(function(i, n){
+                n.id === currentAnswer.dader.id
+            });
+        }
+        var remainingKamers;
+        if(!checks.kamer){
+            remainingKamers = oData.kamers.filter(function(i, n){
+                return i.id !== parseInt(currentAnswer.kamer.id);
+            });
+        } else {
+            remainingKamers = oData.kamers.filter(function(i, n){
+                n.id === currentAnswer.kamer.id
+            });
+        }
+        var remainingData = {
+            wapens: remainingWapens,
+            daders: remainingDaders,
+            kamers: remainingKamers
+        }
+        var response = {
+            checks: checks,
+            oData: remainingData
+        }
+        res.send(response);
+        _writeGuess(currentAnswer);
+    }).catch((e)=>{
+        console.log(`Error: ${e}`);
+    });
 });
 
 function _writeGuess(currentAnswer){
