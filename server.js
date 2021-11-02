@@ -4,6 +4,7 @@ const app = express(), port = process.env.PORT || 3000 ;
 var jsonParser = bodyParser.json();
 const { default: axios } = require('axios');
 const fs = require('fs');
+const { callbackify } = require('util');
 
 app.use(express.static('public'));
 
@@ -150,7 +151,8 @@ function _writeGuess(currentAnswer){
 }
 
 function _checkWapen(caWapen, soWapen){
-    if(caWapen.id === soWapen.id){
+    caWapen = parseInt(caWapen.id);
+    if(caWapen === soWapen.id){
         return true
     } else {
         return false
@@ -158,7 +160,8 @@ function _checkWapen(caWapen, soWapen){
 }
 
 function _checkDader(caDader, soDader){
-    if(caDader.id === soDader.id){
+    caDader = parseInt(caDader.id);
+    if(caDader === soDader.id){
         return true
     } else {
         return false
@@ -166,7 +169,8 @@ function _checkDader(caDader, soDader){
 }
 
 function _checkKamer(caKamer, soKamer){
-    if(caKamer.id === soKamer.id){
+    caKamer = parseInt(caKamer.id);
+    if(caKamer === soKamer.id){
         return true
     } else {
         return false
