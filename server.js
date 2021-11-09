@@ -28,17 +28,13 @@ app.get('/data', function (req, res) {
 app.get('/new_solution', function (req, res) {
     // reset game
     var guesses = {"guesses": []};
-    fs.writeFileSync('guesses.json', JSON.stringify(guesses));
+    fs.writeFileSync('gamedata/guesses_player.json', JSON.stringify(guesses));
     // generate new solution
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
         var oData = response.data;
-        let solution = {
-            "wapen": oData.wapens[_getRandomInt(oData.wapens.length)],
-            "dader": oData.daders[_getRandomInt(oData.daders.length)],
-            "kamer": oData.kamers[_getRandomInt(oData.kamers.length)]
-        }
+        let solution = _createSolution(oData);
         if(solution != null && solution != undefined){
-            fs.writeFileSync('solution.json', JSON.stringify(solution));
+            fs.writeFileSync('gamedata/solution.json', JSON.stringify(solution));
             console.log("Solution created");
         } else {
             console.error("Could not create solution");
@@ -48,7 +44,15 @@ app.get('/new_solution', function (req, res) {
     });
 });
 
-app.post('/move_player', jsonParser, (req, res) => {
+function _createSolution(oData){
+    return {
+        "wapen": oData.wapens[_getRandomInt(oData.wapens.length)],
+        "dader": oData.daders[_getRandomInt(oData.daders.length)],
+        "kamer": oData.kamers[_getRandomInt(oData.kamers.length)]
+    }
+}
+
+/*app.post('/move_player', jsonParser, (req, res) => {
     if(req.body.player != undefined){ 
         // Read player positions
         var currentPosPlayer = req.body.player.currentPosition.id;
@@ -84,70 +88,71 @@ app.post('/move_player', jsonParser, (req, res) => {
     } else {
         console.log("No player location given.")
     }
-});
+});*/
 
 app.post('/check_answer', jsonParser, (req, res) => {
-    var currentAnswer = req.body;
-    let rawdata = fs.readFileSync('solution.json').toString();
+    var playerData = req.body.data;
+    var checks, botGuesses, response;
+
+    checks = _checkData(playerData);
+
+    // Check bots activated
+    if(playerData.amountOfBots > 0){
+        axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
+            var oData = response.data;
+            botGuesses = [];
+            for(var i = 0; i < playerData.amountOfBots; i++){ // For each bot
+                let rawdata = fs.readFileSync(`gamedata/guesses_bot${i+1}.json`).toString(); // Read data
+                var guesses = JSON.parse(rawdata);
+                let tempGuess;
+                do {
+                    tempGuess = _createSolution(oData);
+                } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer));
+                botGuesses.push(tempGuess); // Create new guess instance
+                guesses.guesses = []; // REMOVE CLEAR FOR MORE GUESSES --> SMART BOT
+                guesses.guesses.push(botGuesses);
+                if(botGuesses != null && botGuesses != undefined){
+                    fs.writeFileSync(`gamedata/guesses_bot${i+1}.json`, JSON.stringify(guesses)); // Write new guess
+                }
+            }
+            response = {
+                checks: checks,
+                botGuesses: botGuesses
+            }
+            res.send(response);
+            _writePlayerGuess(playerData.answer);
+        }).catch((e)=>{
+            console.error(`Error: ${e}`);
+        });
+    } else {
+        response = {
+            checks: checks
+        }
+        res.send(response);
+        _writePlayerGuess(playerData.answer);
+    }
+});
+
+function _checkData(oData){
+    var currentAnswer = oData.answer;
+    let rawdata = fs.readFileSync('gamedata/solution.json').toString();
     var solution = JSON.parse(rawdata);
-    var checks = {
+    console.log(currentAnswer);
+    console.log(currentAnswer.wapen);
+    console.log(solution);
+    console.log(solution.wapen);
+    return {
         wapen: _checkWapen(currentAnswer.wapen, solution.wapen),
         dader: _checkDader(currentAnswer.dader, solution.dader),
         kamer: _checkKamer(currentAnswer.kamer, solution.kamer)
     };
-    axios.get("https://htf-2021.herokuapp.com/testdata.json").then((resp)=>{
-        var oData = resp.data;
-        var remainingWapens;
-        if(!checks.wapen){
-            remainingWapens = oData.wapens.filter(function(i, n){
-                return i.id !== parseInt(currentAnswer.wapen.id);
-            });
-        } else {
-            remainingWapens = oData.wapens.filter(function(i, n){
-                n.id === currentAnswer.wapen.id
-            });
-        }
-        var remainingDaders;
-        if(!checks.dader){
-            remainingDaders = oData.daders.filter(function(i, n){
-                return i.id !== parseInt(currentAnswer.dader.id);
-            });
-        } else {
-            remainingDaders = oData.daders.filter(function(i, n){
-                n.id === currentAnswer.dader.id
-            });
-        }
-        var remainingKamers;
-        if(!checks.kamer){
-            remainingKamers = oData.kamers.filter(function(i, n){
-                return i.id !== parseInt(currentAnswer.kamer.id);
-            });
-        } else {
-            remainingKamers = oData.kamers.filter(function(i, n){
-                n.id === currentAnswer.kamer.id
-            });
-        }
-        var remainingData = {
-            wapens: remainingWapens,
-            daders: remainingDaders,
-            kamers: remainingKamers
-        }
-        var response = {
-            checks: checks,
-            oData: remainingData
-        }
-        res.send(response);
-        _writeGuess(currentAnswer);
-    }).catch((e)=>{
-        console.log(`Error: ${e}`);
-    });
-});
+}
 
-function _writeGuess(currentAnswer){
-    let rawdata = fs.readFileSync('guesses.json').toString();
+function _writePlayerGuess(currentAnswer){
+    let rawdata = fs.readFileSync('gamedata/guesses_player.json').toString();
     var guesses = JSON.parse(rawdata);
     guesses.guesses.push(currentAnswer);
-    fs.writeFileSync('guesses.json', JSON.stringify(guesses));
+    fs.writeFileSync('gamedata/guesses_player.json', JSON.stringify(guesses));
 }
 
 function _checkWapen(caWapen, soWapen){
