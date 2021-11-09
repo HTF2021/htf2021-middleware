@@ -27,8 +27,7 @@ app.get('/data', function (req, res) {
 
 app.get('/new_solution', function (req, res) {
     // reset game
-    var guesses = {"guesses": []};
-    fs.writeFileSync('gamedata/guesses_player.json', JSON.stringify(guesses));
+    _clearLocalFiles();
     // generate new solution
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
         var oData = response.data;
@@ -43,6 +42,14 @@ app.get('/new_solution', function (req, res) {
         console.error(`Error: ${e}`);
     });
 });
+
+function _clearLocalFiles(){
+    var guesses = {"guesses": []};
+    fs.writeFileSync('gamedata/guesses_player.json', JSON.stringify(guesses));
+    for(var i = 0; i < 4; i++){ // For each bot
+        fs.writeFileSync(`gamedata/guesses_bot${i+1}.json`, JSON.stringify(guesses));
+    }
+}
 
 function _createSolution(oData){
     return {
@@ -109,7 +116,8 @@ app.post('/check_answer', jsonParser, (req, res) => {
                     tempGuess = _createSolution(oData);
                 } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer));
                 botGuesses.push(tempGuess); // Create new guess instance
-                guesses.guesses = []; // REMOVE CLEAR FOR MORE GUESSES --> SMART BOT
+                //guesses.guesses = []; // REMOVE CLEAR FOR MORE GUESSES --> SMART BOT
+                guesses.guesses = _guessesDifficultyGenerator(guesses.guesses);
                 guesses.guesses.push(botGuesses);
                 if(botGuesses != null && botGuesses != undefined){
                     fs.writeFileSync(`gamedata/guesses_bot${i+1}.json`, JSON.stringify(guesses)); // Write new guess
@@ -132,6 +140,23 @@ app.post('/check_answer', jsonParser, (req, res) => {
         _writePlayerGuess(playerData.answer);
     }
 });
+
+function _guessesDifficultyGenerator(guesses){
+    var difficulty = "easy";
+    switch(difficulty){
+        case "medium": return _botGuessesMediumDifficulty(guesses);
+        case "hard": return _botGuessesHardDifficulty(guesses);
+        default: return [];
+    }
+}
+
+function _botGuessesMediumDifficulty(){
+
+}
+
+function _botGuessesHardDifficulty(){
+
+}
 
 function _checkData(oData){
     var currentAnswer = oData.answer;
