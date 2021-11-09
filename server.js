@@ -16,8 +16,7 @@ app.use((req, res, next) => {
     next();
 });
 
-app.post('/data', function (req, res) {
-    console.log(req.body);
+app.get('/data', function (req, res) {
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
         var oData = response.data;
         res.send(oData);
@@ -99,9 +98,6 @@ app.post('/check_answer', jsonParser, (req, res) => {
     axios.get("https://htf-2021.herokuapp.com/testdata.json").then((resp)=>{
         var oData = resp.data;
         var remainingWapens;
-        var remainingDaders;
-        var remainingKamers;
-        // Wapens
         if(!checks.wapen){
             remainingWapens = oData.wapens.filter(function(i, n){
                 return i.id !== parseInt(currentAnswer.wapen.id);
@@ -111,7 +107,7 @@ app.post('/check_answer', jsonParser, (req, res) => {
                 n.id === currentAnswer.wapen.id
             });
         }
-        // Daders
+        var remainingDaders;
         if(!checks.dader){
             remainingDaders = oData.daders.filter(function(i, n){
                 return i.id !== parseInt(currentAnswer.dader.id);
@@ -121,7 +117,7 @@ app.post('/check_answer', jsonParser, (req, res) => {
                 n.id === currentAnswer.dader.id
             });
         }
-        // Kamers
+        var remainingKamers;
         if(!checks.kamer){
             remainingKamers = oData.kamers.filter(function(i, n){
                 return i.id !== parseInt(currentAnswer.kamer.id);
