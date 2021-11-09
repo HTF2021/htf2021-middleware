@@ -5,6 +5,7 @@ var jsonParser = bodyParser.json();
 const { default: axios } = require('axios');
 const fs = require('fs');
 const { callbackify } = require('util');
+const ROUNDS_KILLER_INACTIVE = 5;
 
 app.use(express.static('public'));
 
@@ -45,10 +46,15 @@ app.get('/new_solution', function (req, res) {
 
 function _clearLocalFiles(){
     var guesses = {"guesses": []};
+    var location = {"location":[]};
+    // Player
     fs.writeFileSync('gamedata/guesses_player.json', JSON.stringify(guesses));
-    for(var i = 0; i < 4; i++){ // For each bot
+    // Bots
+    for(var i = 0; i < 4; i++){
         fs.writeFileSync(`gamedata/guesses_bot${i+1}.json`, JSON.stringify(guesses));
     }
+    // Killer
+    fs.writeFileSync('gamedata/killer_location.json', JSON.stringify(location));
 }
 
 function _createSolution(oData){
@@ -59,113 +65,112 @@ function _createSolution(oData){
     }
 }
 
-/*app.post('/move_player', jsonParser, (req, res) => {
-    if(req.body.player != undefined){ 
-        // Read player positions
-        var currentPosPlayer = req.body.player.currentPosition.id;
-        var nextPosPlayer = req.body.player.nextPosition.id;
-
-        // Set default player location
-        var newPlayerLocation = currentPosPlayer;
-
-        // Check player location
-        if(currentPosPlayer != nextPosPlayer){
-            newPlayerLocation = nextPosPlayer
-            // Check bot location(s)
-            if(req.body.bots.length > 0){ // If 1 or more bots in the game
-                for(let i = 0; i < req.body.bots.length; i++){
-                    let botLocation = req.body.bots[i].id;
-                    if(botLocation == nextPosPlayer){ // If bot is in chosen room, reset to default
-                        newPlayerLocation = currentPosPlayer;
-                    }
-                }
-            }
-            if(req.body.killer != undefined){ // If 1 killer in the game
-                // check killer location
-                let killerLocation = req.body.killer.id;
-                if(killerLocation == nextPosPlayer){ // If bot is in chosen room, reset to default
-                    newPlayerLocation = currentPosPlayer;
-                }
-            }
+function _checkKillerKillsPlayer(killerLocation, playerData){
+    let rawdata = fs.readFileSync(`gamedata/guesses_player.json`).toString(); // Read data
+    var playerGuesses = JSON.parse(rawdata);
+    if(playerData.killerActivated && playerGuesses.guesses.length >= ROUNDS_KILLER_INACTIVE){ 
+        // Killer active
+        if(killerLocation === playerData.answer.kamer.id){
+            return true;
+        } else {
+            return false;
         }
-        let position = {
-            "id": newPlayerLocation
-        }
-        res.send(position);
     } else {
-        console.log("No player location given.")
+        // Killer not (yet) active 
+        return false;
     }
-});*/
+}
+
+function _checkKillerKillsBot(playerData, killerLocation, botKamerId){
+    let rawdata = fs.readFileSync(`gamedata/guesses_player.json`).toString(); // Read data
+    var playerGuesses = JSON.parse(rawdata);
+    if(playerData.killerActivated && playerGuesses.guesses.length >= ROUNDS_KILLER_INACTIVE){ 
+        // Killer active
+        if(killerLocation === botKamerId){
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        // Killer not (yet) active 
+        return false;
+    }
+}
+
 
 app.post('/check_answer', jsonParser, (req, res) => {
     var playerData = req.body.data;
-    var checks, botGuesses, response;
-
+    var checks, botGuesses, newBotStatuses, response;
+    // Check player guess
     checks = _checkData(playerData);
 
-    // Check bots activated
-    if(playerData.amountOfBots > 0){
-        axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
-            var oData = response.data;
+    // Bots & Killer logic
+    axios.get("https://htf-2021.herokuapp.com/testdata.json").then((resp)=>{
+        var oData = resp.data;    
+        // Killer kills player logic
+        var killerLocation = _createSolution(oData).kamer.id;
+        if(_checkKillerKillsPlayer(killerLocation, playerData)){
+            let game_status = {
+                status: "game over"
+            }
+            res.send(game_status);
+        }
+        // Check bots activated
+        if(playerData.amountOfBots > 0){
             botGuesses = [];
-            for(var i = 0; i < playerData.amountOfBots; i++){ // For each bot
-                let rawdata = fs.readFileSync(`gamedata/guesses_bot${i+1}.json`).toString(); // Read data
+            newBotStatuses = [];
+            for(var i = 1; i <= playerData.amountOfBots; i++){ // For each bot
+                let rawdata = fs.readFileSync(`gamedata/guesses_bot${i}.json`).toString(); // Read past guesses
                 var guesses = JSON.parse(rawdata);
-                let tempGuess;
-                do {
-                    tempGuess = _createSolution(oData);
-                } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer));
-                botGuesses.push(tempGuess); // Create new guess instance
-                //guesses.guesses = []; // REMOVE CLEAR FOR MORE GUESSES --> SMART BOT
-                guesses.guesses = _guessesDifficultyGenerator(guesses.guesses);
+                if(playerData.botStatuses == undefined || playerData.botStatuses == null){ // initial botstatus = true -> alive
+                    playerData.botStatuses = [true, true, true, true];
+                }
+                if(playerData.botStatuses[i-1] || (playerData.botStatuses[i-1] === 'true')){ // status = true -> bot is alive
+                    let tempGuess;
+                    do {
+                        tempGuess = _createSolution(oData);
+                    } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer));
+                    if(_checkKillerKillsBot(playerData, killerLocation, tempGuess.kamer.id)){
+                        newBotStatuses.push(false); // dead = false
+                        botGuesses.push({});
+                    } else {
+                        newBotStatuses.push(true);
+                        botGuesses.push(tempGuess); // Create new guess instance
+                    }
+                } else {
+                    // status = false -> bot is dead
+                    newBotStatuses.push(false); // dead = false
+                    botGuesses.push({});
+                }
+                guesses.guesses = []; // REMOVE CLEAR FOR MORE GUESSES --> SMART BOT
                 guesses.guesses.push(botGuesses);
                 if(botGuesses != null && botGuesses != undefined){
-                    fs.writeFileSync(`gamedata/guesses_bot${i+1}.json`, JSON.stringify(guesses)); // Write new guess
+                    fs.writeFileSync(`gamedata/guesses_bot${i}.json`, JSON.stringify(guesses)); // Write new guess
                 }
             }
             response = {
                 checks: checks,
-                botGuesses: botGuesses
+                botGuesses: botGuesses,
+                botStatuses: newBotStatuses
             }
             res.send(response);
             _writePlayerGuess(playerData.answer);
-        }).catch((e)=>{
-            console.error(`Error: ${e}`);
-        });
-    } else {
-        response = {
-            checks: checks
+        } else {
+            response = {
+                checks: checks
+            }
+            res.send(response);
+            _writePlayerGuess(playerData.answer);
         }
-        res.send(response);
-        _writePlayerGuess(playerData.answer);
-    }
+    }).catch((e)=>{
+        console.error(`Error: ${e}`);
+    });
 });
-
-function _guessesDifficultyGenerator(guesses){
-    var difficulty = "easy";
-    switch(difficulty){
-        case "medium": return _botGuessesMediumDifficulty(guesses);
-        case "hard": return _botGuessesHardDifficulty(guesses);
-        default: return [];
-    }
-}
-
-function _botGuessesMediumDifficulty(){
-
-}
-
-function _botGuessesHardDifficulty(){
-
-}
 
 function _checkData(oData){
     var currentAnswer = oData.answer;
     let rawdata = fs.readFileSync('gamedata/solution.json').toString();
     var solution = JSON.parse(rawdata);
-    console.log(currentAnswer);
-    console.log(currentAnswer.wapen);
-    console.log(solution);
-    console.log(solution.wapen);
     return {
         wapen: _checkWapen(currentAnswer.wapen, solution.wapen),
         dader: _checkDader(currentAnswer.dader, solution.dader),
