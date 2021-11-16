@@ -64,11 +64,15 @@ async function _createSolution(){
     }
 }
 
-function _checkStatus(playerData, kamerId){
+async function _checkStatus(playerData, kamerId){
     let rawdata = fs.readFileSync(`gamedata/guesses_player.json`).toString(); // Read data
     var playerGuesses = JSON.parse(rawdata);
     if(playerData.killerActivated && playerGuesses.guesses.length >= ROUNDS_KILLER_INACTIVE){
         // Killer active
+        if(!playerData.killerLocation){ // Create Killer location if not existing yet
+            let killerLocation = await _createSolution();
+            playerData.killerLocation = await killerLocation.kamer.id;
+        }
         if(playerData.killerLocation === kamerId){
             return false; // false == dead, true == alive
         } else {
@@ -82,22 +86,27 @@ function _checkStatus(playerData, kamerId){
 
 async function _handleBotData(playerData){
     var botGuesses = [];
+    var botLocations = [];
     var botChecks = [];
     var botStatuses = [];
+    var tempGuess;
 
     for(var i = 0; i < playerData.amountOfBots; i++){ // For each bot
         // Create bot guess
         // Note: Only one player or bot can be in a room
         if(i === 0){
             do {
-                botGuesses[i] = await _createSolution();
-            } while(_checkKamer(botGuesses[i].kamer, playerData.answer.kamer));
+                tempGuess = await _createSolution();
+            } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer));
         } else {
             do {
-                botGuesses[i] = await _createSolution();
-            } while(_checkKamer(botGuesses[i].kamer, playerData.answer.kamer) || _checkKamer(botGuesses[i].kamer, botGuesses[i-1].kamer));
+                tempGuess = await _createSolution();
+            } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer) && !_checkBotKamers(tempGuess.kamer, botGuesses));
         }
-
+        // save valid temp guess
+        botGuesses[i] = tempGuess;
+        // save bot location
+        botLocations[i] = botGuesses[i].kamer.id;
         // Check Bot guess
         botChecks[i] = _checkData(botGuesses[i]);
 
@@ -113,8 +122,20 @@ async function _handleBotData(playerData){
     }
     return {
         botChecks: botChecks,
-        botStatuses: botStatuses
+        botStatuses: botStatuses,
+        botLocations: botLocations
     }
+}
+
+function _checkBotKamers(caKamer, botGuesses){
+    let unique = true;
+    caKamer = parseInt(caKamer.id);
+    for(let i = 0; i < botGuesses.length; i++){
+        if(caKamer === botGuesses[i].kamer.id){
+            unique = false
+        }
+    }
+    return unique;
 }
 
 app.post('/check_answer', jsonParser, async (req, res) => {
@@ -124,12 +145,6 @@ app.post('/check_answer', jsonParser, async (req, res) => {
     var checks = {};
     // Check player guess
     checks.player = _checkData(playerData.answer);
-    
-    // Create Killer location
-    if(playerData.killerActivated){
-        let killerLocation = await _createSolution();
-        playerData.killerLocation = await killerLocation.kamer.id;
-    }
 
     // Check player status (dead or alive)
     statuses.player = _checkStatus(playerData, playerData.answer.kamer.id);
@@ -148,6 +163,7 @@ app.post('/check_answer', jsonParser, async (req, res) => {
         let botData = await _handleBotData(playerData);
         response.checks.bots = botData.botChecks;
         response.statuses.bots = botData.botStatuses;
+        response.botLocations = botData.botLocations;
         res.send(response);
     } else {
         res.send(response);
