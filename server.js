@@ -9,8 +9,8 @@ const ROUNDS_KILLER_INACTIVE = 5;
 
 app.use(express.static('public'));
 
-app.use(bodyParser.urlencoded());
-app.use(bodyParser.json());
+app.use(express.urlencoded());
+app.use(express.json());
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -71,8 +71,10 @@ async function _checkStatus(playerData, kamerId){
         // Killer active
         if(!playerData.killerLocation){ // Create Killer location if not existing yet
             let killerLocation = await _createSolution();
-            playerData.killerLocation = await killerLocation.kamer.id;
+            playerData.killerLocation = killerLocation.kamer.id;
         }
+        playerData.killerLocation = parseInt(playerData.killerLocation);
+        kamerId = parseInt(kamerId);
         if(playerData.killerLocation === kamerId){
             return false; // false == dead, true == alive
         } else {
@@ -84,58 +86,50 @@ async function _checkStatus(playerData, kamerId){
     }
 }
 
+async function makeGuess(roomsUsed){
+    const tempGuess = await _createSolution();
+    if(!roomsUsed.includes(tempGuess.kamer.id)){
+        return tempGuess;
+    } else {
+        return makeGuess(roomsUsed);
+    }
+}
+
 async function _handleBotData(playerData){
     var botGuesses = [];
     var botLocations = [];
     var botChecks = [];
-    var botStatuses = [];
-    var tempGuess;
-
-    for(var i = 0; i < playerData.amountOfBots; i++){ // For each bot
-        // Create bot guess
-        // Note: Only one player or bot can be in a room
-        if(i === 0){
-            do {
-                tempGuess = await _createSolution();
-            } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer));
-        } else {
-            do {
-                tempGuess = await _createSolution();
-            } while(_checkKamer(tempGuess.kamer, playerData.answer.kamer) && !_checkBotKamers(tempGuess.kamer, botGuesses));
-        }
-        // save valid temp guess
-        botGuesses[i] = tempGuess;
-        // save bot location
-        botLocations[i] = botGuesses[i].kamer.id;
-        // Check Bot guess
-        botChecks[i] = _checkData(botGuesses[i]);
-
-        // Check bot status (dead or alive)
-        if(playerData.botStatuses == undefined || playerData.botStatuses == null){ // if initial: game starts
-            botStatuses = [true, true, true, true];
-        } else {
-            botStatuses[i] = _checkStatus(playerData, botGuesses[i].kamer.id);
-        }
-
-        // Write bot guess
-        _writeGuess(botGuesses[i], `gamedata/guesses_bot${i+1}.json`);
+    let roomsUsed = [];
+    for(var i = 0; i < playerData.botStatuses.length; i++){ // For each bot
+        if(playerData.botStatuses[i]){
+            const tempGuess = await makeGuess(roomsUsed);        
+            roomsUsed.push(tempGuess.kamer.id);    
+            
+            // save valid temp guess
+            botGuesses[i] = tempGuess;
+            // save bot location
+            botLocations[i] = botGuesses[i].kamer.name;
+            // Check Bot guess
+            botChecks[i] = _checkData(botGuesses[i]);
+            // Check bot status (dead or alive)
+            playerData.botStatuses[i] = await _checkStatus(playerData, botGuesses[i].kamer.id);
+            // Write bot guess
+            _writeGuess(botGuesses[i], `gamedata/guesses_bot${i+1}.json`);
+        }  
     }
     return {
         botChecks: botChecks,
-        botStatuses: botStatuses,
+        botStatuses: playerData.botStatuses,
         botLocations: botLocations
     }
 }
 
-function _checkBotKamers(caKamer, botGuesses){
-    let unique = true;
-    caKamer = parseInt(caKamer.id);
-    for(let i = 0; i < botGuesses.length; i++){
-        if(caKamer === botGuesses[i].kamer.id){
-            unique = false
-        }
-    }
-    return unique;
+function _parseBotStatuses(statuses){
+    let parsedvalues = [];
+    statuses.forEach(element => {
+        parsedvalues.push((element === 'true'))
+    });
+    return parsedvalues;
 }
 
 app.post('/check_answer', jsonParser, async (req, res) => {
@@ -143,11 +137,15 @@ app.post('/check_answer', jsonParser, async (req, res) => {
     var response;
     var statuses = {};
     var checks = {};
+
+    // Convert values to boolean
+    playerData.botStatuses = _parseBotStatuses(playerData.botStatuses);
+
     // Check player guess
     checks.player = _checkData(playerData.answer);
 
     // Check player status (dead or alive)
-    statuses.player = _checkStatus(playerData, playerData.answer.kamer.id);
+    statuses.player = await _checkStatus(playerData, playerData.answer.kamer.id);
 
     // Create response
     response = {
@@ -207,7 +205,8 @@ function _checkDader(caDader, soDader){
 
 function _checkKamer(caKamer, soKamer){
     caKamer = parseInt(caKamer.id);
-    if(caKamer === soKamer.id){
+    soKamer = parseInt(soKamer.id);
+    if(caKamer === soKamer){
         return true
     } else {
         return false
