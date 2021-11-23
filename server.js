@@ -18,12 +18,6 @@ app.use((req, res, next) => {
 app.get('/data', function (req, res) {
     // REQUIRED
     // Get gamedata from "https://htf-2021.herokuapp.com/testdata.json" using axios and send data to frontend
-    /*axios.get("https://htf-2021.herokuapp.com/testdata.json").then((response)=>{
-        var oData = response.data;
-        res.send(oData);
-    }).catch((e)=>{
-        console.log(`Error: ${e}`);
-    });*/
 });
 
 app.get('/new_solution', async function (req, res) {
@@ -96,9 +90,9 @@ async function _createSolution(){
     // REQUIRED
     // Get random objects from oData by using random generator (_getRandomInt)
     return {
-        "wapen": "", //oData.wapens[_getRandomInt(oData.wapens.length)],
-        "dader": "", //oData.daders[_getRandomInt(oData.daders.length)],
-        "kamer": "", //oData.kamers[_getRandomInt(oData.kamers.length)]
+        "wapen": "",
+        "dader": "",
+        "kamer": ""
     }
 }
 
@@ -140,17 +134,6 @@ async function _checkStatus(playerData, kamerId){
         // BONUS 2.0
         // Make the killer play its own turn, then check if he is in the same room as the player. Return true if player survives, else return false.
         // Killer active
-        /*if(!playerData.killerLocation){ // Create Killer location if not existing yet
-            let killerLocation = await _createSolution();
-            playerData.killerLocation = killerLocation.kamer.id;
-        }
-        playerData.killerLocation = parseInt(playerData.killerLocation);
-        kamerId = parseInt(kamerId);
-        if(playerData.killerLocation === kamerId){
-            return false; // false == dead, true == alive
-        } else {
-            return true;
-        }*/
     } else {
         // Killer not active 
         return true;
@@ -172,9 +155,9 @@ function _checkData(currentAnswer){
     // REQUIRED
     // Check object with existing (!) check functions. Return value should be true || false
     return {
-        wapen: "", //_checkWapen(currentAnswer.wapen, solution.wapen),
-        dader: "", //_checkDader(currentAnswer.dader, solution.dader),
-        kamer: "" //_checkKamer(currentAnswer.kamer, solution.kamer)
+        wapen: "",
+        dader: "",
+        kamer: ""
     };
 }
 
@@ -182,10 +165,6 @@ function _writeGuess(currentAnswer, filePath){
     // REQUIRED
     // Read content of file (filepath). Add current guess, then write the adjusted content to (filepath).
     // Tip: use 'fs'
-    /*let rawdata = fs.readFileSync(filePath).toString();
-    var guesses = JSON.parse(rawdata);
-    guesses.guesses.push(currentAnswer);
-    fs.writeFileSync(filePath, JSON.stringify(guesses));*/
 }
 
 function _checkWapen(caWapen, soWapen){
