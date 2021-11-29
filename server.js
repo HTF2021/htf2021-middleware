@@ -26,7 +26,7 @@ app.get('/data', function (req, res) {
     });
 });
 
-app.get('/new_solution', async function (req, res) {
+app.post('/new_solution', async function (req, res) {
     try{
         // reset game
         _clearLocalFiles();
