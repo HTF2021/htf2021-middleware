@@ -20,7 +20,7 @@ app.get('/data', function (req, res) {
     // Get gamedata from "https://htf-2021.herokuapp.com/testdata.json" using axios and send data to frontend
 });
 
-app.get('/new_solution', async function (req, res) {
+app.post('/new_solution', async function (req, res) {
     try{
         // reset game
         _clearLocalFiles();
