@@ -16,7 +16,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/data', function (req, res) {
-    // REQUIRED
+    // FIXME: REQUIRED 1
     // Get gamedata from "https://htf-2021.herokuapp.com/testdata.json" using axios and send data to frontend
 });
 
@@ -87,7 +87,7 @@ function _clearLocalFiles(){
 async function _createSolution(){
     var resp = await axios.get("https://htf-2021.herokuapp.com/testdata.json");
     var oData = resp.data;
-    // REQUIRED
+    // FIXME: REQUIRED 2
     // Get random objects from oData by using random generator (_getRandomInt)
     return {
         "wapen": "",
@@ -116,7 +116,7 @@ async function _handleBotData(playerData){
             playerData.botStatuses[i] = await _checkStatus(playerData, botGuesses[i].kamer.id);
             // Write bot guess
             _writeGuess(botGuesses[i], `gamedata/guesses_bot${i+1}.json`);
-            // BONUS 2.0
+            // TODO: BONUS 2.0
             // Make smart bot: bot learns from its guesses and keeps correct answers!
         }  
     }
@@ -131,7 +131,7 @@ async function _checkStatus(playerData, kamerId){
     let rawdata = fs.readFileSync(`gamedata/guesses_player.json`).toString(); // Read data
     var playerGuesses = JSON.parse(rawdata);
     if(playerData.killerActivated && playerGuesses.guesses.length >= ROUNDS_KILLER_INACTIVE){
-        // BONUS 2.0
+        // TODO: BONUS 2.0
         // Make the killer play its own turn, then check if he is in the same room as the player. Return true if player survives, else return false.
         // Killer active
     } else {
@@ -152,7 +152,7 @@ async function _makeGuess(roomsUsed){
 function _checkData(currentAnswer){
     let rawdata = fs.readFileSync('gamedata/solution.json').toString();
     var solution = JSON.parse(rawdata);
-    // REQUIRED
+    // FIXME: REQUIRED 3
     // Check object with existing (!) check functions. Return value should be true || false
     return {
         wapen: "",
@@ -162,7 +162,7 @@ function _checkData(currentAnswer){
 }
 
 function _writeGuess(currentAnswer, filePath){
-    // REQUIRED
+    // FIXME: REQUIRED 4
     // Read content of file (filepath). Add current guess, then write the adjusted content to (filepath).
     // Tip: use 'fs'
 }
